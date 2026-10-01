@@ -234,3 +234,119 @@ class SessionState(BaseModel):
 
 class TranscriptionResponse(BaseModel):
     text: str
+
+
+# ---------------------------------------------------------------- scorecard
+
+ClaimStatus = Literal["verified", "unverified", "contradicted"]
+
+
+class ExtractedClaim(BaseModel):
+    claim: str
+    keywords: list[str] = Field(default_factory=list)
+    kind: str = "other"  # technology | implementation | file | other
+
+    @field_validator("keywords", mode="before")
+    @classmethod
+    def coerce_keywords(cls, value: object) -> object:
+        return [] if value is None else _as_list(value)
+
+
+class AnswerClaims(BaseModel):
+    answer_id: int
+    claims: list[ExtractedClaim] = Field(default_factory=list)
+
+
+class ClaimExtraction(BaseModel):
+    answers: list[AnswerClaims] = Field(default_factory=list)
+
+
+class Evidence(BaseModel):
+    file: str
+    line: int | None = None
+    snippet: str = ""
+    source: Literal["dependency", "path", "content"] = "content"
+
+
+class ClaimCheck(BaseModel):
+    claim: str
+    keywords: list[str] = Field(default_factory=list)
+    kind: str = "other"
+    question_number: int
+    status: ClaimStatus
+    explanation: str = ""
+    evidence: list[Evidence] = Field(default_factory=list)
+    adjudicated: bool = False
+
+
+class Adjudication(BaseModel):
+    id: int
+    status: ClaimStatus
+    explanation: str = ""
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def normalize_status(cls, value: object) -> object:
+        return str(value).strip().lower()
+
+
+class AdjudicationBatch(BaseModel):
+    verdicts: list[Adjudication] = Field(default_factory=list)
+
+
+class ScoreLine(BaseModel):
+    score: int = Field(ge=1, le=5)
+    feedback: str = ""
+
+
+class GradeOut(BaseModel):
+    question_number: int
+    depth: ScoreLine
+    accuracy: ScoreLine
+    clarity: ScoreLine
+
+
+class GradeBatch(BaseModel):
+    grades: list[GradeOut] = Field(default_factory=list)
+
+
+class PrepItem(BaseModel):
+    question: str
+    why: str = ""
+    talking_points: list[str] = Field(default_factory=list)
+    files: list[str] = Field(default_factory=list)
+
+    @field_validator("talking_points", "files", mode="before")
+    @classmethod
+    def coerce_lists(cls, value: object) -> object:
+        return [] if value is None else _as_list(value)
+
+
+class ReportSummary(BaseModel):
+    summary: str
+    strengths: list[str] = Field(default_factory=list)
+    prep: list[PrepItem] = Field(default_factory=list)
+
+
+class QuestionReport(BaseModel):
+    question_number: int
+    topic: str
+    question: str
+    exchanges: list[Turn]
+    depth: ScoreLine
+    accuracy: ScoreLine
+    clarity: ScoreLine
+    score: int  # 0-100 for this question
+
+
+class Report(BaseModel):
+    session_id: str
+    repo_meta: RepoMeta
+    overall_score: int
+    summary: str
+    strengths: list[str]
+    questions: list[QuestionReport]
+    claims: list[ClaimCheck]
+    bluffs: list[ClaimCheck]
+    prep: list[PrepItem]
+    ended_early: bool = False
