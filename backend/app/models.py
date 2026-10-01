@@ -1,5 +1,7 @@
 """Pydantic schemas for API payloads, internal state and LLM outputs."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 # ---------------------------------------------------------------- ingestion
@@ -124,3 +126,88 @@ class DossierResponse(BaseModel):
     repo_id: str
     repo_meta: RepoMeta
     dossier: Dossier
+
+
+# ---------------------------------------------------------------- interview
+
+Difficulty = Literal["easy", "medium", "hard"]
+InterviewLength = Literal[5, 8, 12]
+TurnKind = Literal["opener", "question", "follow_up", "closing", "answer"]
+
+
+class Turn(BaseModel):
+    speaker: Literal["interviewer", "candidate"]
+    kind: TurnKind
+    text: str
+    question_index: int
+
+
+class InterviewerDecision(BaseModel):
+    """Structured output of the interviewer LLM after each candidate answer."""
+
+    action: Literal["follow_up", "next_question", "end"]
+    reason: str = ""
+    utterance: str = Field(min_length=1)
+    note: str = ""
+
+    @field_validator("action", mode="before")
+    @classmethod
+    def normalize_action(cls, value: object) -> object:
+        return str(value).strip().lower().replace("-", "_").replace(" ", "_")
+
+
+class Session(BaseModel):
+    session_id: str
+    repo_id: str
+    length: InterviewLength
+    difficulty: Difficulty
+    plan: list[CandidateQuestion]
+    current: int = 0
+    follow_ups_on_current: int = 0
+    transcript: list[Turn] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+    done: bool = False
+    ended_early: bool = False
+
+    @property
+    def current_question(self) -> CandidateQuestion:
+        return self.plan[self.current]
+
+
+class SessionRequest(BaseModel):
+    repo_id: str
+    length: InterviewLength = 8
+    difficulty: Difficulty = "medium"
+
+
+class TurnOut(BaseModel):
+    text: str
+    kind: TurnKind
+    question_number: int
+    total_questions: int
+    topic: str
+
+
+class SessionResponse(BaseModel):
+    session_id: str
+    repo_meta: RepoMeta
+    first_turn: TurnOut
+
+
+class AnswerRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=6000)
+
+
+class AnswerResponse(BaseModel):
+    next_turn: TurnOut
+    done: bool
+
+
+class SessionState(BaseModel):
+    session_id: str
+    repo_meta: RepoMeta
+    length: InterviewLength
+    difficulty: Difficulty
+    transcript: list[Turn]
+    current_turn: TurnOut | None
+    done: bool
