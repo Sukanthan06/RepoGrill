@@ -6,6 +6,7 @@ import type {
   DossierResponse,
   IngestResponse,
   InterviewLength,
+  Report,
   SessionResponse,
   SessionState,
   TranscriptionResponse,
@@ -117,6 +118,10 @@ export function endSession(sessionId: string): Promise<AnswerResponse> {
   return request<AnswerResponse>(`/api/session/${encodeURIComponent(sessionId)}/end`, {
     method: "POST",
   });
+}
+
+export function getReport(sessionId: string): Promise<Report> {
+  return request<Report>(`/api/session/${encodeURIComponent(sessionId)}/report`);
 }
 
 export function transcribe(audio: Blob, durationSeconds: number): Promise<TranscriptionResponse> {

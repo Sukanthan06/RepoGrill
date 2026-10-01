@@ -96,3 +96,59 @@ export interface AnswerResponse {
 export interface TranscriptionResponse {
   text: string;
 }
+
+export type ClaimStatus = "verified" | "unverified" | "contradicted";
+
+export interface Evidence {
+  file: string;
+  line: number | null;
+  snippet: string;
+  source: "dependency" | "path" | "content";
+}
+
+export interface ClaimCheck {
+  claim: string;
+  keywords: string[];
+  kind: string;
+  question_number: number;
+  status: ClaimStatus;
+  explanation: string;
+  evidence: Evidence[];
+  adjudicated: boolean;
+}
+
+export interface ScoreLine {
+  score: number;
+  feedback: string;
+}
+
+export interface QuestionReport {
+  question_number: number;
+  topic: string;
+  question: string;
+  exchanges: Turn[];
+  depth: ScoreLine;
+  accuracy: ScoreLine;
+  clarity: ScoreLine;
+  score: number;
+}
+
+export interface PrepItem {
+  question: string;
+  why: string;
+  talking_points: string[];
+  files: string[];
+}
+
+export interface Report {
+  session_id: string;
+  repo_meta: RepoMeta;
+  overall_score: number;
+  summary: string;
+  strengths: string[];
+  questions: QuestionReport[];
+  claims: ClaimCheck[];
+  bluffs: ClaimCheck[];
+  prep: PrepItem[];
+  ended_early: boolean;
+}
