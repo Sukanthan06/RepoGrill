@@ -36,6 +36,7 @@ MAX_PENALTY = 20
 PREP_COUNT = 5
 EXCHANGE_CHAR_LIMIT = 1500
 STRUCTURE_FILES = 6
+ANSWER_SUMMARY_CHARS = 400
 STRUCTURE_TOKENS_PER_FILE = 150
 NO_ANSWER = ScoreLine(score=1, feedback="No answer to grade.")
 
@@ -120,6 +121,15 @@ def batch_blocks(blocks: list[tuple[int, str]], budget: int) -> list[list[tuple[
         batches[-1].append((number, block))
         used += cost
     return [b for b in batches if b]
+
+
+def candidate_answers(questions: list[QuestionReport]) -> str:
+    """The candidate's own words per question, clipped, so the summary can't invent praise."""
+    lines = []
+    for q in questions:
+        said = " / ".join(t.text for t in q.exchanges if t.speaker == "candidate")
+        lines.append(f"- Q{q.question_number} ({q.topic}): {said[:ANSWER_SUMMARY_CHARS]}")
+    return "\n".join(lines) or "(none)"
 
 
 def prep_structure(
@@ -214,6 +224,7 @@ class ReportBuilder:
             bluffs="\n".join(f"- [{b.status}] {b.claim}: {b.explanation}" for b in bluffs)
             or "(none)",
             unasked="\n".join(f"- ({q.topic}) {q.question}" for q in unasked[:8]) or "(none)",
+            answers=candidate_answers(questions),
             files="\n".join(files),
             structure=prep_structure(repo, session, questions, dossier),
         )

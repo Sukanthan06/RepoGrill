@@ -1,6 +1,20 @@
 from app.claims import batch_answers, collect_answers
-from app.models import CandidateQuestion, ClaimCheck, GradeOut, ScoreLine, Session, Turn
-from app.scoring import group_exchanges, overall_score, question_score, select_bluffs
+from app.models import (
+    CandidateQuestion,
+    ClaimCheck,
+    GradeOut,
+    QuestionReport,
+    ScoreLine,
+    Session,
+    Turn,
+)
+from app.scoring import (
+    candidate_answers,
+    group_exchanges,
+    overall_score,
+    question_score,
+    select_bluffs,
+)
 
 
 def make_session() -> Session:
@@ -73,3 +87,19 @@ def test_bluffs_are_contradictions_then_unverified_technologies() -> None:
         check("contradicted"),
     ]
     assert [c.status for c in select_bluffs(checks)] == ["contradicted", "unverified"]
+
+
+def test_candidate_answers_only_include_candidate_turns() -> None:
+    q = QuestionReport(
+        question_number=1,
+        topic="overview",
+        question="Q?",
+        exchanges=make_session().transcript[:4],
+        depth=ScoreLine(score=2),
+        accuracy=ScoreLine(score=2),
+        clarity=ScoreLine(score=2),
+        score=40,
+    )
+    text = candidate_answers([q])
+    assert "answer zero / answer zero b" in text
+    assert "more?" not in text

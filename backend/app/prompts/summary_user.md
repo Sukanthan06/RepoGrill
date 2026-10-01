@@ -24,3 +24,6 @@ $files
 
 Code structure of relevant files (use real names from here):
 $structure
+
+What the candidate actually said:
+$answers
