@@ -1,8 +1,9 @@
 """Pydantic schemas for API payloads, internal state and LLM outputs."""
 
+import asyncio
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, PrivateAttr, field_validator
 
 # ---------------------------------------------------------------- ingestion
 
@@ -168,6 +169,12 @@ class Session(BaseModel):
     notes: list[str] = Field(default_factory=list)
     done: bool = False
     ended_early: bool = False
+    # Serializes answers so a double-submit can't advance the interview twice.
+    _lock: asyncio.Lock = PrivateAttr(default_factory=asyncio.Lock)
+
+    @property
+    def lock(self) -> asyncio.Lock:
+        return self._lock
 
     @property
     def current_question(self) -> CandidateQuestion:
