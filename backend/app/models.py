@@ -43,6 +43,8 @@ class IngestedRepo(BaseModel):
     meta: RepoMeta
     context_files: list[FileSnippet]
     index: EvidenceIndex
+    # Non-noise paths ordered by importance (used to show the model real file names)
+    ranked_paths: list[str] = Field(default_factory=list)
 
 
 class IngestRequest(BaseModel):

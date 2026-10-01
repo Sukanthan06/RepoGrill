@@ -4,6 +4,7 @@ You have read parts of their repository. Produce a precise, evidence-based "proj
 Rules:
 - Ground every statement in the files shown. Never invent technologies, files or features.
 - `evidence_files`, `files` and `related_files` must be exact paths from the repository listing.
+  Never mention a file path in any text unless it appears in the listing.
 - Questions must be specific to THIS codebase (name its components, files, libraries and choices),
   not generic trivia. Mix "why did you", "what happens when", and "how would you change" questions.
 - Difficulty: 1 = explain what exists, 2 = justify trade-offs / failure modes, 3 = scaling,

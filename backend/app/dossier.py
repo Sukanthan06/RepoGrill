@@ -15,6 +15,7 @@ from app.store import TTLStore
 logger = logging.getLogger(__name__)
 
 MAX_DEPENDENCIES_LISTED = 60
+MAX_NOTABLE_FILES = 60
 DOSSIER_MAX_OUTPUT_TOKENS = 6000
 _LEADING_SLASHES_RE = re.compile(r"^(?:\./|/)+")
 
@@ -72,6 +73,7 @@ def build_messages(repo: IngestedRepo, budget_tokens: int) -> list[dict[str, str
         language=meta.language or "unknown",
         total_files=meta.total_files,
         overview=directory_overview(repo.index.paths),
+        notable_files="\n".join(repo.ranked_paths[:MAX_NOTABLE_FILES]) or "(none)",
         dependencies=dep_text,
         files="",
     )

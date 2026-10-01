@@ -6,6 +6,9 @@ Total files: $total_files
 Directory overview:
 $overview
 
+Notable files (only cite paths that appear in this list or below):
+$notable_files
+
 Declared dependencies:
 $dependencies
 
