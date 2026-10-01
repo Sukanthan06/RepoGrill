@@ -239,6 +239,7 @@ class TranscriptionResponse(BaseModel):
 # ---------------------------------------------------------------- scorecard
 
 ClaimStatus = Literal["verified", "unverified", "contradicted"]
+EvidenceSource = Literal["dependency", "path", "content"]
 
 
 class ExtractedClaim(BaseModel):
@@ -265,7 +266,7 @@ class Evidence(BaseModel):
     file: str
     line: int | None = None
     snippet: str = ""
-    source: Literal["dependency", "path", "content"] = "content"
+    source: EvidenceSource = "content"
 
 
 class ClaimCheck(BaseModel):

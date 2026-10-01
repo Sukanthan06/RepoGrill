@@ -11,7 +11,7 @@ import re
 from dataclasses import dataclass, field
 
 from app.file_ranking import is_manifest
-from app.models import ClaimStatus, EvidenceIndex, ExtractedClaim
+from app.models import ClaimStatus, EvidenceIndex, EvidenceSource, ExtractedClaim
 
 DOC_EXTS = {".md", ".rst", ".txt", ".adoc"}
 MAX_EVIDENCE = 3
@@ -76,7 +76,7 @@ class Match:
     path: str
     line: int | None
     snippet: str
-    source: str  # dependency | path | content
+    source: EvidenceSource
 
     @property
     def in_docs(self) -> bool:
@@ -175,6 +175,14 @@ def _alternatives_present(keyword: str, searcher: EvidenceSearcher) -> tuple[str
     return "", []
 
 
+def describe_match(keyword: str, match: Match) -> str:
+    if match.source == "dependency":
+        return f"{match.path} {match.snippet}"
+    if match.source == "path":
+        return f"'{keyword}' matches the file {match.path}"
+    return f"'{keyword}' appears in {match.path} line {match.line}"
+
+
 def verify_claim(claim: ExtractedClaim, searcher: EvidenceSearcher) -> Verdict:
     """Label a claim using only the evidence index (no LLM)."""
     keywords = [k for k in claim.keywords if k.strip()]
@@ -185,7 +193,9 @@ def verify_claim(claim: ExtractedClaim, searcher: EvidenceSearcher) -> Verdict:
     found = searcher.find(primary)
     code_matches = [m for m in found if not m.in_docs]
     if code_matches:
-        return Verdict("verified", f"Found '{primary}' in the code", code_matches[:MAX_EVIDENCE])
+        return Verdict(
+            "verified", describe_match(primary, code_matches[0]), code_matches[:MAX_EVIDENCE]
+        )
 
     alternative, alt_matches = _alternatives_present(primary, searcher)
     if alternative:
