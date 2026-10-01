@@ -1,5 +1,6 @@
 """FastAPI application: wiring, CORS, error handling and routes."""
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -10,7 +11,9 @@ from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 from app.errors import AppError
-from app.llm_client import LLMClient
+from app.routes import ingest
+from app.services import Services
+from app.store import run_periodic_cleanup
 
 settings = get_settings()
 logging.basicConfig(
@@ -22,9 +25,12 @@ logger = logging.getLogger("repogrill")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    app.state.llm = LLMClient(settings)
+    services = Services.create(settings)
+    app.state.services = services
+    cleanup = asyncio.create_task(run_periodic_cleanup(services.stores))
     yield
-    await app.state.llm.aclose()
+    cleanup.cancel()
+    await services.aclose()
 
 
 app = FastAPI(title="RepoGrill API", version="0.1.0", lifespan=lifespan)
@@ -46,6 +52,9 @@ async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:
         headers["Retry-After"] = str(int(exc.retry_after) + 1)
         body["retry_after"] = exc.retry_after
     return JSONResponse(status_code=exc.status_code, content=body, headers=headers)
+
+
+app.include_router(ingest.router)
 
 
 @app.get("/api/health")
