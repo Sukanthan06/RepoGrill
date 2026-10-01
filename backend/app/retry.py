@@ -51,13 +51,23 @@ async def send_with_retry(
             response = await send()
         except (httpx.TransportError, httpx.TimeoutException) as exc:
             last_exc = exc
-            logger.warning("%s failed (%s), attempt %d/%d", label, type(exc).__name__,
-                           attempt + 1, max_attempts)
+            logger.warning(
+                "%s failed (%s), attempt %d/%d",
+                label,
+                type(exc).__name__,
+                attempt + 1,
+                max_attempts,
+            )
         else:
             if not is_retryable(response) or attempt == max_attempts - 1:
                 return response
-            logger.warning("%s got HTTP %d, attempt %d/%d", label, response.status_code,
-                           attempt + 1, max_attempts)
+            logger.warning(
+                "%s got HTTP %d, attempt %d/%d",
+                label,
+                response.status_code,
+                attempt + 1,
+                max_attempts,
+            )
             hinted = retry_after_seconds(response)
             await sleep(hinted if hinted is not None else backoff_delay(attempt))
             continue
