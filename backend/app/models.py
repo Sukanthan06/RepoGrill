@@ -227,3 +227,10 @@ class SessionState(BaseModel):
     transcript: list[Turn]
     current_turn: TurnOut | None
     done: bool
+
+
+# ------------------------------------------------------------------- speech
+
+
+class TranscriptionResponse(BaseModel):
+    text: str
