@@ -8,8 +8,9 @@ from app.config import Settings
 from app.dossier import DossierService
 from app.github_client import GitHubClient
 from app.ingestion import Ingestor
+from app.interview import InterviewService
 from app.llm_client import LLMClient
-from app.models import Dossier, IngestedRepo
+from app.models import Dossier, IngestedRepo, Session
 from app.store import TTLStore
 
 
@@ -20,21 +21,26 @@ class Services:
     github: GitHubClient
     ingestor: Ingestor
     dossiers: DossierService
+    interviews: InterviewService
     stores: list[TTLStore] = field(default_factory=list)
 
     @classmethod
     def create(cls, settings: Settings) -> "Services":
         repos: TTLStore[str, IngestedRepo] = TTLStore(settings.session_ttl_seconds)
         dossiers: TTLStore[str, Dossier] = TTLStore(settings.session_ttl_seconds)
+        sessions: TTLStore[str, Session] = TTLStore(settings.session_ttl_seconds)
         github = GitHubClient(settings)
         llm = LLMClient(settings)
+        ingestor = Ingestor(github, repos)
+        dossier_service = DossierService(llm, dossiers, settings.dossier_input_tokens)
         return cls(
             settings=settings,
             llm=llm,
             github=github,
-            ingestor=Ingestor(github, repos),
-            dossiers=DossierService(llm, dossiers, settings.dossier_input_tokens),
-            stores=[repos, dossiers],
+            ingestor=ingestor,
+            dossiers=dossier_service,
+            interviews=InterviewService(llm, ingestor, dossier_service, sessions),
+            stores=[repos, dossiers, sessions],
         )
 
     async def aclose(self) -> None:

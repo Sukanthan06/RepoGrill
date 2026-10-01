@@ -114,6 +114,7 @@ class Ingestor:
             ),
             context_files=context_files,
             index=build_index(all_paths, contents),
+            ranked_paths=ranked,
         )
         self.cache.set(repo_id, repo)
         logger.info(

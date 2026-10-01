@@ -1,6 +1,9 @@
 """Pydantic schemas for API payloads, internal state and LLM outputs."""
 
-from pydantic import BaseModel, Field, field_validator
+import asyncio
+from typing import Literal
+
+from pydantic import BaseModel, Field, PrivateAttr, field_validator
 
 # ---------------------------------------------------------------- ingestion
 
@@ -40,6 +43,8 @@ class IngestedRepo(BaseModel):
     meta: RepoMeta
     context_files: list[FileSnippet]
     index: EvidenceIndex
+    # Non-noise paths ordered by importance (used to show the model real file names)
+    ranked_paths: list[str] = Field(default_factory=list)
 
 
 class IngestRequest(BaseModel):
@@ -124,3 +129,101 @@ class DossierResponse(BaseModel):
     repo_id: str
     repo_meta: RepoMeta
     dossier: Dossier
+
+
+# ---------------------------------------------------------------- interview
+
+Difficulty = Literal["easy", "medium", "hard"]
+InterviewLength = Literal[5, 8, 12]
+TurnKind = Literal["opener", "question", "follow_up", "closing", "answer"]
+
+
+class Turn(BaseModel):
+    speaker: Literal["interviewer", "candidate"]
+    kind: TurnKind
+    text: str
+    question_index: int
+
+
+class InterviewerDecision(BaseModel):
+    """Structured output of the interviewer LLM after each candidate answer."""
+
+    assessment: str = ""
+    unsupported_claims: list[str] = Field(default_factory=list)
+    action: Literal["follow_up", "next_question", "end"]
+    reason: str = ""
+    utterance: str = Field(min_length=1)
+    note: str = ""
+
+    @field_validator("action", "assessment", mode="before")
+    @classmethod
+    def normalize_label(cls, value: object) -> object:
+        return str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+
+    @field_validator("unsupported_claims", mode="before")
+    @classmethod
+    def coerce_claims(cls, value: object) -> object:
+        return [] if value is None else _as_list(value)
+
+
+class Session(BaseModel):
+    session_id: str
+    repo_id: str
+    length: InterviewLength
+    difficulty: Difficulty
+    plan: list[CandidateQuestion]
+    current: int = 0
+    follow_ups_on_current: int = 0
+    transcript: list[Turn] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+    done: bool = False
+    ended_early: bool = False
+    # Serializes answers so a double-submit can't advance the interview twice.
+    _lock: asyncio.Lock = PrivateAttr(default_factory=asyncio.Lock)
+
+    @property
+    def lock(self) -> asyncio.Lock:
+        return self._lock
+
+    @property
+    def current_question(self) -> CandidateQuestion:
+        return self.plan[self.current]
+
+
+class SessionRequest(BaseModel):
+    repo_id: str
+    length: InterviewLength = 8
+    difficulty: Difficulty = "medium"
+
+
+class TurnOut(BaseModel):
+    text: str
+    kind: TurnKind
+    question_number: int
+    total_questions: int
+    topic: str
+
+
+class SessionResponse(BaseModel):
+    session_id: str
+    repo_meta: RepoMeta
+    first_turn: TurnOut
+
+
+class AnswerRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=6000)
+
+
+class AnswerResponse(BaseModel):
+    next_turn: TurnOut
+    done: bool
+
+
+class SessionState(BaseModel):
+    session_id: str
+    repo_meta: RepoMeta
+    length: InterviewLength
+    difficulty: Difficulty
+    transcript: list[Turn]
+    current_turn: TurnOut | None
+    done: bool
