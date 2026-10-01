@@ -4,13 +4,15 @@ from dataclasses import dataclass, field
 
 from fastapi import Request
 
+from app.claims import ClaimChecker
 from app.config import Settings
 from app.dossier import DossierService
 from app.github_client import GitHubClient
 from app.ingestion import Ingestor
 from app.interview import InterviewService
 from app.llm_client import LLMClient
-from app.models import Dossier, IngestedRepo, Session
+from app.models import Dossier, IngestedRepo, Report, Session
+from app.scoring import ReportBuilder, ReportService
 from app.store import TTLStore
 
 
@@ -22,6 +24,7 @@ class Services:
     ingestor: Ingestor
     dossiers: DossierService
     interviews: InterviewService
+    reports: ReportService
     stores: list[TTLStore] = field(default_factory=list)
 
     @classmethod
@@ -29,18 +32,22 @@ class Services:
         repos: TTLStore[str, IngestedRepo] = TTLStore(settings.session_ttl_seconds)
         dossiers: TTLStore[str, Dossier] = TTLStore(settings.session_ttl_seconds)
         sessions: TTLStore[str, Session] = TTLStore(settings.session_ttl_seconds)
+        reports: TTLStore[str, Report] = TTLStore(settings.session_ttl_seconds)
         github = GitHubClient(settings)
         llm = LLMClient(settings)
         ingestor = Ingestor(github, repos)
         dossier_service = DossierService(llm, dossiers, settings.dossier_input_tokens)
+        interviews = InterviewService(llm, ingestor, dossier_service, sessions)
+        builder = ReportBuilder(llm, ClaimChecker(llm, settings.fast_model))
         return cls(
             settings=settings,
             llm=llm,
             github=github,
             ingestor=ingestor,
             dossiers=dossier_service,
-            interviews=InterviewService(llm, ingestor, dossier_service, sessions),
-            stores=[repos, dossiers, sessions],
+            interviews=interviews,
+            reports=ReportService(builder, interviews, reports),
+            stores=[repos, dossiers, sessions, reports],
         )
 
     async def aclose(self) -> None:

@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 from app.errors import AppError
-from app.routes import dossier, ingest, session
+from app.routes import dossier, ingest, session, transcribe
 from app.services import Services
 from app.store import run_periodic_cleanup
 
@@ -20,6 +20,8 @@ logging.basicConfig(
     level=settings.log_level.upper(),
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
+# httpx logs every request URL at INFO; keep the logs readable.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger("repogrill")
 
 
@@ -57,6 +59,7 @@ async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:
 app.include_router(ingest.router)
 app.include_router(dossier.router)
 app.include_router(session.router)
+app.include_router(transcribe.router)
 
 
 @app.get("/api/health")

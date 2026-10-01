@@ -1,0 +1,33 @@
+# Render Blueprint for the RepoGrill API (free web service).
+# Secrets and model names are set in the Render dashboard (sync: false = no value here).
+services:
+  - type: web
+    name: repogrill-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: APP_ENV
+        value: production
+      - key: LLM_BASE_URL
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        sync: false
+      - key: LLM_FAST_MODEL
+        sync: false
+      - key: STT_MODEL
+        sync: false
+      - key: LLM_REASONING_EFFORT
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: FRONTEND_ORIGIN
+        sync: false

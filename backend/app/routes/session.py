@@ -6,6 +6,7 @@ from app.errors import NotFoundError
 from app.models import (
     AnswerRequest,
     AnswerResponse,
+    Report,
     SessionRequest,
     SessionResponse,
     SessionState,
@@ -54,3 +55,8 @@ async def answer(session_id: str, body: AnswerRequest, services: ServicesDep) ->
 @router.post("/{session_id}/end")
 async def end_session(session_id: str, services: ServicesDep) -> AnswerResponse:
     return AnswerResponse(next_turn=services.interviews.end_early(session_id), done=True)
+
+
+@router.get("/{session_id}/report")
+async def get_report(session_id: str, services: ServicesDep) -> Report:
+    return await services.reports.get_or_create(session_id)

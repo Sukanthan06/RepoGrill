@@ -1,5 +1,17 @@
 /** Typed client for the RepoGrill backend API. */
 
+import type {
+  AnswerResponse,
+  Difficulty,
+  DossierResponse,
+  IngestResponse,
+  InterviewLength,
+  Report,
+  SessionResponse,
+  SessionState,
+  TranscriptionResponse,
+} from "./types";
+
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(
   /\/$/,
   "",
@@ -67,4 +79,84 @@ export interface Health {
 
 export function getHealth(signal?: AbortSignal): Promise<Health> {
   return request<Health>("/api/health", { signal });
+}
+
+const json = (body: unknown): RequestInit => ({
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+});
+
+export function ingestRepo(repoUrl: string): Promise<IngestResponse> {
+  return request<IngestResponse>("/api/ingest", json({ repo_url: repoUrl }));
+}
+
+export function getDossier(repoId: string): Promise<DossierResponse> {
+  return request<DossierResponse>(`/api/dossier/${encodeURIComponent(repoId)}`);
+}
+
+export function createSession(
+  repoId: string,
+  length: InterviewLength,
+  difficulty: Difficulty,
+): Promise<SessionResponse> {
+  return request<SessionResponse>("/api/session", json({ repo_id: repoId, length, difficulty }));
+}
+
+export function getSession(sessionId: string): Promise<SessionState> {
+  return request<SessionState>(`/api/session/${encodeURIComponent(sessionId)}`);
+}
+
+export function submitAnswer(sessionId: string, text: string): Promise<AnswerResponse> {
+  return request<AnswerResponse>(
+    `/api/session/${encodeURIComponent(sessionId)}/answer`,
+    json({ text }),
+  );
+}
+
+export function endSession(sessionId: string): Promise<AnswerResponse> {
+  return request<AnswerResponse>(`/api/session/${encodeURIComponent(sessionId)}/end`, {
+    method: "POST",
+  });
+}
+
+export function getReport(sessionId: string): Promise<Report> {
+  return request<Report>(`/api/session/${encodeURIComponent(sessionId)}/report`);
+}
+
+export function transcribe(audio: Blob, durationSeconds: number): Promise<TranscriptionResponse> {
+  const form = new FormData();
+  const extension = audio.type.includes("ogg")
+    ? "ogg"
+    : audio.type.includes("mp4")
+      ? "m4a"
+      : "webm";
+  form.append("audio", audio, `answer.${extension}`);
+  form.append("duration_seconds", durationSeconds.toFixed(1));
+  return request<TranscriptionResponse>("/api/transcribe", { method: "POST", body: form });
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Run `call`, and when the server reports a rate limit, wait and retry.
+ * `onRateLimited` lets the UI show a "rate limited, retrying…" state.
+ */
+export async function withRateLimitRetry<T>(
+  call: () => Promise<T>,
+  onRateLimited: (waitSeconds: number) => void,
+  maxRetries = 3,
+): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await call();
+    } catch (error) {
+      if (!(error instanceof ApiError) || !error.isRateLimited || attempt >= maxRetries) {
+        throw error;
+      }
+      const wait = Math.min(Math.max(error.retryAfter ?? 10, 2), 60);
+      onRateLimited(wait);
+      await sleep(wait * 1000);
+    }
+  }
 }
