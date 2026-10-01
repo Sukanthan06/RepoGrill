@@ -50,6 +50,13 @@ SOURCE_EXTS = {
     ".vue", ".svelte", ".astro", ".sql", ".sh", ".graphql", ".proto", ".zig",
 }  # fmt: skip
 
+# Directories that rarely explain how the project itself works.
+LOW_SIGNAL_DIRS = {
+    "docs", "doc", "examples", "example", "samples", "demo", ".devcontainer", ".github",
+    "benchmarks", "fixtures", "testdata", "scripts", "tools", "hack", "e2e",
+}  # fmt: skip
+LOW_SIGNAL_PENALTY = 600
+
 CONFIG_EXTS = {".toml", ".yaml", ".yml", ".json", ".ini", ".cfg", ".conf", ".env.example"}
 DOC_EXTS = {".md", ".rst", ".txt"}
 
@@ -101,6 +108,12 @@ def _size_bonus(size: int) -> float:
 
 def score_file(path: str, size: int) -> float:
     """Higher means read earlier. README > manifests > entrypoints > shallow source."""
+    dirs = path.lower().split("/")[:-1]
+    penalty = LOW_SIGNAL_PENALTY if any(d in LOW_SIGNAL_DIRS for d in dirs) else 0
+    return _base_score(path, size) - penalty
+
+
+def _base_score(path: str, size: int) -> float:
     name = posixpath.basename(path).lower()
     stem, ext = posixpath.splitext(name)
     depth = path.count("/")

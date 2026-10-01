@@ -50,3 +50,10 @@ def test_shallow_manifest_beats_nested_entrypoint() -> None:
 def test_moderate_size_beats_tiny_file_at_same_depth() -> None:
     ranked = rank_files([("src/tiny.py", 50), ("src/core.py", 8000)])
     assert ranked == ["src/core.py", "src/tiny.py"]
+
+
+def test_docs_and_tooling_rank_below_source() -> None:
+    ranked = rank_files(
+        [("docs/Makefile", 500), (".devcontainer/setup.sh", 800), ("src/pkg/core.py", 5000)]
+    )
+    assert ranked[0] == "src/pkg/core.py"
