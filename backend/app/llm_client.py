@@ -84,6 +84,10 @@ class LLMClient:
             )
         except httpx.HTTPError as exc:
             raise UpstreamError(f"LLM provider unreachable: {type(exc).__name__}") from exc
+        if response.status_code == 413:
+            raise UpstreamError(
+                "Request too large for the LLM provider's token limit; lower the input budget"
+            )
         if response.status_code == 429:
             raise RateLimitedError(
                 "LLM provider rate limit reached", retry_after=retry_after_seconds(response)
@@ -108,6 +112,8 @@ class LLMClient:
         }
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
+        if self.settings.llm_reasoning_effort:
+            payload["reasoning_effort"] = self.settings.llm_reasoning_effort
         response = await self._post("chat/completions", "chat", json=payload)
         if response.status_code == 400 and json_mode:
             # Some providers reject output that fails their own JSON check;

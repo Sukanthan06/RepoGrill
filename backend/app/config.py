@@ -26,8 +26,14 @@ class Settings(BaseSettings):
     llm_model: str = ""
     llm_fast_model: str = ""
     stt_model: str = ""
+    # Optional, e.g. "low" for reasoning models; omitted from requests when empty.
+    llm_reasoning_effort: str = ""
     llm_timeout_seconds: float = 60.0
     llm_max_attempts: int = 4
+
+    # Prompt budget for dossier generation. Free tiers often cap tokens per minute
+    # (Groq: 8k), so the whole request must stay well below that.
+    dossier_input_tokens: int = 4500
 
     github_token: str = ""
     github_api_url: str = "https://api.github.com"
