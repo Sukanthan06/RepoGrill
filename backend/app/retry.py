@@ -37,13 +37,14 @@ async def send_with_retry(
     *,
     max_attempts: int = 4,
     label: str = "request",
-    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    sleep: Callable[[float], Awaitable[None]] | None = None,
 ) -> httpx.Response:
     """Call `send` until it returns a non-retryable response or attempts run out.
 
     Network errors are retried too. The last response (possibly a 429/5xx) is
     returned so the caller can decide how to surface it.
     """
+    sleep = sleep or asyncio.sleep
     last_exc: Exception | None = None
     for attempt in range(max_attempts):
         try:
