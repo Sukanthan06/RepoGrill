@@ -103,3 +103,16 @@ async def test_persistent_429_raises_rate_limited() -> None:
     assert route.call_count == 4
     assert info.value.retry_after == 7.0
     await client.aclose()
+
+
+@respx.mock
+async def test_reasoning_effort_sent_only_when_configured() -> None:
+    route = respx.post(f"{BASE}/chat/completions").mock(return_value=completion("ok"))
+    settings = make_settings()
+    client = LLMClient(settings)
+    await client.chat([{"role": "user", "content": "hi"}])
+    assert b"reasoning_effort" not in route.calls[-1].request.content
+    settings.llm_reasoning_effort = "low"
+    await client.chat([{"role": "user", "content": "hi"}])
+    assert b'"reasoning_effort":"low"' in route.calls[-1].request.content
+    await client.aclose()

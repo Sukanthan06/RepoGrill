@@ -1,6 +1,6 @@
 """Pydantic schemas for API payloads, internal state and LLM outputs."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # ---------------------------------------------------------------- ingestion
 
@@ -51,3 +51,76 @@ class IngestResponse(BaseModel):
     repo_meta: RepoMeta
     files_analyzed: list[str]
     dependencies: list[str]
+
+
+# ------------------------------------------------------------------ dossier
+
+WEAK_SPOT_AREAS = ("scaling", "error_handling", "security", "testing", "concurrency", "other")
+
+
+def _as_list(value: object) -> object:
+    """LLMs sometimes return a single string where a list is expected."""
+    return [value] if isinstance(value, str) else value
+
+
+class TechItem(BaseModel):
+    name: str
+    purpose: str = ""
+    evidence_files: list[str] = Field(default_factory=list)
+
+
+class Component(BaseModel):
+    name: str
+    responsibility: str
+    files: list[str] = Field(default_factory=list)
+
+
+class Architecture(BaseModel):
+    components: list[Component] = Field(default_factory=list)
+    data_flow: str = ""
+
+
+class DesignDecision(BaseModel):
+    decision: str
+    rationale: str = ""
+    files: list[str] = Field(default_factory=list)
+
+
+class WeakSpot(BaseModel):
+    area: str
+    description: str
+    files: list[str] = Field(default_factory=list)
+
+    @field_validator("area", mode="before")
+    @classmethod
+    def normalize_area(cls, value: object) -> str:
+        area = str(value).strip().lower().replace(" ", "_").replace("-", "_")
+        return area if area in WEAK_SPOT_AREAS else "other"
+
+
+class CandidateQuestion(BaseModel):
+    topic: str
+    difficulty: int = Field(ge=1, le=3)
+    question: str
+    what_good_answer_covers: list[str] = Field(default_factory=list)
+    related_files: list[str] = Field(default_factory=list)
+
+    @field_validator("what_good_answer_covers", mode="before")
+    @classmethod
+    def coerce_covers(cls, value: object) -> object:
+        return _as_list(value)
+
+
+class Dossier(BaseModel):
+    summary: str
+    tech_stack: list[TechItem] = Field(default_factory=list)
+    architecture: Architecture = Field(default_factory=Architecture)
+    key_design_decisions: list[DesignDecision] = Field(default_factory=list)
+    likely_weak_spots: list[WeakSpot] = Field(default_factory=list)
+    candidate_questions: list[CandidateQuestion] = Field(min_length=6)
+
+
+class DossierResponse(BaseModel):
+    repo_id: str
+    repo_meta: RepoMeta
+    dossier: Dossier
