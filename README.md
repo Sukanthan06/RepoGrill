@@ -31,6 +31,17 @@ python scripts/discover_models.py --write
 uvicorn app.main:app --reload --port 8000
 ```
 
+### Try it in the terminal
+
+Once the backend env is configured you can run a full text interview without the UI:
+
+```bash
+cd backend
+python scripts/cli_interview.py https://github.com/owner/repo --length 5 --difficulty medium
+```
+
+Type `/end` to stop early.
+
 ### Frontend
 
 ```bash
