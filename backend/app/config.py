@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     github_token: str = ""
     github_api_url: str = "https://api.github.com"
 
+    app_env: str = "development"
     frontend_origin: str = ""
     session_ttl_seconds: int = 2 * 60 * 60
     log_level: str = "INFO"
@@ -47,8 +48,10 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins(self) -> list[str]:
-        origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
-        origins += [o.strip().rstrip("/") for o in self.frontend_origin.split(",") if o.strip()]
+        """FRONTEND_ORIGIN (comma-separated), plus localhost outside production."""
+        origins = [o.strip().rstrip("/") for o in self.frontend_origin.split(",") if o.strip()]
+        if self.app_env != "production":
+            origins += ["http://localhost:3000", "http://127.0.0.1:3000"]
         return origins
 
     @property

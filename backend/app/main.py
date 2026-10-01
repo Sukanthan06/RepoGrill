@@ -20,6 +20,8 @@ logging.basicConfig(
     level=settings.log_level.upper(),
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
+# httpx logs every request URL at INFO; keep the logs readable.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger("repogrill")
 
 
