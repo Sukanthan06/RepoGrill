@@ -32,7 +32,7 @@ export function Segmented<T extends string | number>({
           return (
             <label
               key={String(option.value)}
-              className={`cursor-pointer rounded-lg px-3 py-2 text-center text-sm transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-orange-400 ${
+              className={`min-w-0 cursor-pointer rounded-lg px-1 py-2 text-center text-sm transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-orange-400 ${
                 checked
                   ? "bg-orange-500 font-semibold text-zinc-950"
                   : "text-zinc-300 hover:bg-zinc-800"
