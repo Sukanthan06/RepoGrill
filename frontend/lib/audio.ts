@@ -267,8 +267,23 @@ export async function speak(text: string): Promise<void> {
       if (voice) utterance.voice = voice;
       utterance.lang = voice?.lang ?? "en-US";
       utterance.rate = 1.03;
-      utterance.onend = () => resolve(true);
-      utterance.onerror = () => resolve(false);
+      // Some browsers never fire onend (no voices, blocked autoplay): don't hang the UI.
+      const words = part.split(/\s+/).length;
+      const watchdog = setTimeout(
+        () => {
+          synth.cancel();
+          resolve(false);
+        },
+        4000 + words * 600,
+      );
+      utterance.onend = () => {
+        clearTimeout(watchdog);
+        resolve(true);
+      };
+      utterance.onerror = () => {
+        clearTimeout(watchdog);
+        resolve(false);
+      };
       synth.speak(utterance);
     });
     if (!finished) return;
