@@ -181,7 +181,7 @@ class InterviewService:
             raise NotFoundError("Interview session not found or expired")
         return session
 
-    async def _context(self, session: Session) -> tuple[Dossier, IngestedRepo]:
+    async def context(self, session: Session) -> tuple[Dossier, IngestedRepo]:
         repo = self.ingestor.get(session.repo_id)
         if repo is None:
             raise NotFoundError("The repository for this session has expired; start again")
@@ -216,7 +216,7 @@ class InterviewService:
         async with session.lock:
             if session.done:
                 raise BadRequestError("This interview has already finished")
-            dossier, repo = await self._context(session)
+            dossier, repo = await self.context(session)
             candidate_turn = Turn(
                 speaker="candidate", kind="answer", text=answer, question_index=session.current
             )
