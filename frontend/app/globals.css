@@ -21,3 +21,54 @@ body {
     Roboto,
     sans-serif;
 }
+
+@theme {
+  --animate-orb-pulse: orb-pulse 1.2s ease-in-out infinite;
+  --animate-orb-breathe: orb-breathe 3.5s ease-in-out infinite;
+  --animate-orb-spin: orb-spin 2.4s linear infinite;
+
+  @keyframes orb-pulse {
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.08);
+      opacity: 0.85;
+    }
+  }
+  @keyframes orb-breathe {
+    0%,
+    100% {
+      transform: scale(0.97);
+    }
+    50% {
+      transform: scale(1.03);
+    }
+  }
+  @keyframes orb-spin {
+    0% {
+      transform: rotate(0deg) scale(1);
+      filter: hue-rotate(0deg);
+    }
+    50% {
+      transform: rotate(180deg) scale(1.05);
+      filter: hue-rotate(25deg);
+    }
+    100% {
+      transform: rotate(360deg) scale(1);
+      filter: hue-rotate(0deg);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
