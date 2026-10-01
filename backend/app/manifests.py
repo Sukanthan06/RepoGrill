@@ -13,7 +13,10 @@ _REQ_NAME_RE = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)")
 _GO_REQUIRE_RE = re.compile(r"^\s*(?:require\s+)?([a-z0-9.\-]+\.[a-z]+/[^\s]+)\s+v", re.MULTILINE)
 _GEM_RE = re.compile(r"""^\s*gem\s+['"]([^'"]+)['"]""", re.MULTILINE)
 _MAVEN_RE = re.compile(r"<artifactId>\s*([^<\s]+)\s*</artifactId>")
-_GRADLE_RE = re.compile(r"""(?:implementation|api|compile|runtimeOnly|testImplementation)\s*\(?\s*['"]([^:'"]+):([^:'"]+)""")
+_GRADLE_RE = re.compile(
+    r"(?:implementation|api|compile|runtimeOnly|testImplementation)"
+    r"""\s*\(?\s*['"]([^:'"]+):([^:'"]+)"""
+)
 _PUBSPEC_RE = re.compile(r"^\s{2}([a-z_][a-z0-9_]*):", re.MULTILINE)
 _DOCKER_FROM_RE = re.compile(r"^\s*FROM\s+([^\s:@]+)", re.IGNORECASE | re.MULTILINE)
 _COMPOSE_IMAGE_RE = re.compile(r"^\s*image:\s*['\"]?([^\s:'\"@]+)", re.MULTILINE)

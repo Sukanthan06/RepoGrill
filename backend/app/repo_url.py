@@ -7,9 +7,7 @@ from app.errors import BadRequestError
 
 _NAME_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,99})$")
 _SSH_RE = re.compile(r"^(?:ssh://)?git@github\.com[:/](?P<path>.+)$", re.IGNORECASE)
-_HTTP_RE = re.compile(
-    r"^(?:(?:https?|git)://)?(?:www\.)?github\.com/(?P<path>.+)$", re.IGNORECASE
-)
+_HTTP_RE = re.compile(r"^(?:(?:https?|git)://)?(?:www\.)?github\.com/(?P<path>.+)$", re.IGNORECASE)
 
 
 @dataclass(frozen=True)

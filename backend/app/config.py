@@ -20,7 +20,9 @@ class Settings(BaseSettings):
     )
 
     llm_base_url: str = "https://api.groq.com/openai/v1"
-    llm_api_key: str = Field(default="", validation_alias=AliasChoices("LLM_API_KEY", "GROQ_API_KEY"))
+    llm_api_key: str = Field(
+        default="", validation_alias=AliasChoices("LLM_API_KEY", "GROQ_API_KEY")
+    )
     llm_model: str = ""
     llm_fast_model: str = ""
     stt_model: str = ""
