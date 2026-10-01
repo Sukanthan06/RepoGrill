@@ -148,15 +148,22 @@ class Turn(BaseModel):
 class InterviewerDecision(BaseModel):
     """Structured output of the interviewer LLM after each candidate answer."""
 
+    assessment: str = ""
+    unsupported_claims: list[str] = Field(default_factory=list)
     action: Literal["follow_up", "next_question", "end"]
     reason: str = ""
     utterance: str = Field(min_length=1)
     note: str = ""
 
-    @field_validator("action", mode="before")
+    @field_validator("action", "assessment", mode="before")
     @classmethod
-    def normalize_action(cls, value: object) -> object:
-        return str(value).strip().lower().replace("-", "_").replace(" ", "_")
+    def normalize_label(cls, value: object) -> object:
+        return str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+
+    @field_validator("unsupported_claims", mode="before")
+    @classmethod
+    def coerce_claims(cls, value: object) -> object:
+        return [] if value is None else _as_list(value)
 
 
 class Session(BaseModel):

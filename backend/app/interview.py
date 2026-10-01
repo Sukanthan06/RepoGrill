@@ -1,6 +1,7 @@
 """Interview session state machine: questions, adaptive follow-ups and transcript."""
 
 import logging
+import re
 import secrets
 
 from app.dossier import DossierService
@@ -10,6 +11,7 @@ from app.llm_client import LLMClient
 from app.models import (
     Difficulty,
     Dossier,
+    IngestedRepo,
     InterviewerDecision,
     InterviewLength,
     Session,
@@ -26,6 +28,8 @@ logger = logging.getLogger(__name__)
 MAX_FOLLOW_UPS = 2
 RECENT_TURNS = 4
 MAX_NOTES = 8
+MAX_DEPENDENCIES = 40
+MAX_KEY_FILES = 15
 TURN_CHAR_LIMIT = 1200
 DECISION_MAX_TOKENS = 1500
 GREETING = "Hi, thanks for joining. I've read through {name}, so let's dig in. "
@@ -55,8 +59,18 @@ def format_recent(turns: list[Turn]) -> str:
     return "\n".join(lines) or "(none)"
 
 
+def key_files(dossier: Dossier) -> list[str]:
+    """Grounded file paths the interviewer may cite (from the dossier's architecture)."""
+    files = [f for c in dossier.architecture.components for f in c.files]
+    files += [f for t in dossier.tech_stack for f in t.evidence_files]
+    return list(dict.fromkeys(files))[:MAX_KEY_FILES]
+
+
 def build_decision_messages(
-    session: Session, dossier: Dossier, full_name: str, transcript: list[Turn]
+    session: Session,
+    dossier: Dossier,
+    repo: IngestedRepo,
+    transcript: list[Turn],
 ) -> list[dict[str, str]]:
     """Compact per-call context: summary, current question, recent turns and notes."""
     question = session.current_question
@@ -64,17 +78,20 @@ def build_decision_messages(
     if has_next:
         upcoming = session.plan[session.current + 1]
         next_instruction = (
-            f"If you move on, the next planned question (topic: {upcoming.topic}) is: "
-            f'"{upcoming.question}"'
+            "Only if you choose next_question, ask this next planned question "
+            f'(topic: {upcoming.topic}): "{upcoming.question}"'
         )
     else:
         next_instruction = 'This is the final question. If you move on, use "end" and close.'
     limit_hit = session.follow_ups_on_current >= MAX_FOLLOW_UPS
     stack = ", ".join(t.name for t in dossier.tech_stack[:12]) or "unknown"
+    deps = sorted(repo.index.dependencies)[:MAX_DEPENDENCIES]
     user = render(
         "interviewer_turn",
         summary=dossier.summary,
         stack=stack,
+        dependencies=", ".join(deps) or "(none detected)",
+        key_files=", ".join(key_files(dossier)) or "(none)",
         question_number=session.current + 1,
         total_questions=len(session.plan),
         topic=question.topic,
@@ -89,15 +106,31 @@ def build_decision_messages(
         next_instruction=next_instruction,
     )
     return [
-        {"role": "system", "content": render("interviewer_system", full_name=full_name)},
+        {"role": "system", "content": render("interviewer_system", full_name=repo.meta.full_name)},
         {"role": "user", "content": user},
     ]
 
 
-def apply_decision(session: Session, decision: InterviewerDecision) -> TurnOut:
+NON_ANSWER_RE = re.compile(
+    r"^\W*(?:i\s+)?(?:don'?t\s+know|dunno|no\s+idea|not\s+sure|pass|skip|ok(?:ay)?"
+    r"|um+|uh+|next)\W*$",
+    re.IGNORECASE,
+)
+
+
+def is_non_answer(answer: str) -> bool:
+    return len(answer.split()) <= 2 or bool(NON_ANSWER_RE.match(answer.strip()))
+
+
+def apply_decision(session: Session, decision: InterviewerDecision, answer: str = "") -> TurnOut:
     """Enforce interview rules on the model's decision and advance the session."""
     has_next = session.current + 1 < len(session.plan)
     action, utterance = decision.action, decision.utterance.strip()
+    non_answer = decision.assessment == "non_answer" or (bool(answer) and is_non_answer(answer))
+
+    # A second follow-up after "I don't know" just stalls the interview.
+    if action == "follow_up" and non_answer and session.follow_ups_on_current >= 1:
+        action, utterance = "next_question", ""
 
     if action == "follow_up" and session.follow_ups_on_current >= MAX_FOLLOW_UPS:
         action, utterance = ("next_question", "") if has_next else ("end", "")
@@ -148,11 +181,11 @@ class InterviewService:
             raise NotFoundError("Interview session not found or expired")
         return session
 
-    async def _context(self, session: Session) -> tuple[Dossier, str]:
+    async def _context(self, session: Session) -> tuple[Dossier, IngestedRepo]:
         repo = self.ingestor.get(session.repo_id)
         if repo is None:
             raise NotFoundError("The repository for this session has expired; start again")
-        return await self.dossiers.get_or_create(repo), repo.meta.full_name
+        return await self.dossiers.get_or_create(repo), repo
 
     async def start(
         self, repo_id: str, length: InterviewLength, difficulty: Difficulty
@@ -183,19 +216,22 @@ class InterviewService:
         async with session.lock:
             if session.done:
                 raise BadRequestError("This interview has already finished")
-            dossier, full_name = await self._context(session)
+            dossier, repo = await self._context(session)
             candidate_turn = Turn(
                 speaker="candidate", kind="answer", text=answer, question_index=session.current
             )
             pending = [*session.transcript, candidate_turn]
-            messages = build_decision_messages(session, dossier, full_name, pending)
+            messages = build_decision_messages(session, dossier, repo, pending)
             decision = await self.llm.chat_json(
                 messages, InterviewerDecision, max_tokens=DECISION_MAX_TOKENS, temperature=0.5
             )
-            logger.info("Session %s: %s (%s)", session_id, decision.action, decision.reason)
+            logger.info(
+                "Session %s: %s -> %s (%s)",
+                session_id, decision.assessment, decision.action, decision.reason,
+            )  # fmt: skip
             # Only record the answer once the decision succeeded, so retries don't duplicate it.
             session.transcript.append(candidate_turn)
-            return apply_decision(session, decision)
+            return apply_decision(session, decision, answer)
 
     def end_early(self, session_id: str) -> TurnOut:
         session = self.get(session_id)
