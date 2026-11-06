@@ -2,8 +2,19 @@
 
 **Paste a GitHub repo. Get grilled on it, out loud, by an interviewer who has actually read your code, and see every claim you made that the code doesn't back up.**
 
-![RepoGrill demo](docs/demo.gif)
-<!-- Demo GIF placeholder: record landing -> voice interview -> scorecard and save as docs/demo.gif -->
+**Live demo: [repo-grill.vercel.app](https://repo-grill.vercel.app)** · API: [repogrill-api.onrender.com](https://repogrill-api.onrender.com/api/health)
+
+> The backend runs on Render's free tier and sleeps when idle, so the first visit can show "Waking the server…" for up to a minute.
+
+## Screenshots
+
+| Paste a repo | Get interviewed out loud |
+|---|---|
+| ![Landing page with a repo URL and interview options](docs/screenshots/landing.png) | ![Voice interview: the interviewer challenges a MongoDB claim the code doesn't support](docs/screenshots/interview.png) |
+| **See your score and the bluffs caught** | **Per-question grades and verified claims** |
+| ![Scorecard with score ring and a contradicted MongoDB claim linked to the Postgres evidence](docs/screenshots/report-score.png) | ![Expanded question card with depth, accuracy and clarity grades, transcript and a verified FastAPI claim](docs/screenshots/report-details.png) |
+
+In this run the candidate said the project "stores all the data in MongoDB". The interviewer pushed back mid-interview, and the scorecard marked the claim **contradicted**, linking to `backend/pyproject.toml` and `config.py`, which show the project uses PostgreSQL. The true part of the answer (FastAPI, SQLModel, Alembic) was **verified** with file evidence.
 
 ## Features
 
@@ -231,19 +242,56 @@ cd frontend && npm run lint && npm run typecheck && npm run format:check
 
 ## Deployment
 
-### Backend on Render (free web service)
+The live instance runs on free plans only:
 
-1. Push the repo to GitHub.
-2. In Render, choose **New → Blueprint** and select the repo. `render.yaml` defines the `repogrill-api` service (root dir `backend`, health check `/api/health`, free plan).
-3. Fill in the env vars Render asks for: `LLM_API_KEY`, `LLM_MODEL`, `LLM_FAST_MODEL`, `STT_MODEL`, `GITHUB_TOKEN`, optionally `LLM_BASE_URL` and `LLM_REASONING_EFFORT=low`. Set `FRONTEND_ORIGIN` once you know the Vercel URL.
-4. Deploy, then check `https://<your-service>.onrender.com/api/health`.
+| Part | Host | URL |
+|---|---|---|
+| Frontend | Vercel (Hobby) | https://repo-grill.vercel.app |
+| Backend | Render (free web service, Blueprint from `render.yaml`) | https://repogrill-api.onrender.com |
 
-### Frontend on Vercel (Hobby)
+Both redeploy automatically when `main` is pushed.
 
-1. **Add New → Project** and import the repo.
-2. Set **Root Directory** to `frontend`. The framework preset (Next.js) is detected automatically.
-3. Add the env var `NEXT_PUBLIC_API_URL=https://<your-service>.onrender.com`.
-4. Deploy, then set `FRONTEND_ORIGIN=https://<your-app>.vercel.app` on Render and redeploy the backend.
+### 1. Backend on Render
+
+1. In Render, choose **New → Blueprint**, connect your GitHub account and select the repo. `render.yaml` defines the `repogrill-api` service: root dir `backend`, `pip install -r requirements.txt`, `uvicorn app.main:app`, health check `/api/health`, free plan, `APP_ENV=production`.
+2. Fill in the environment variables Render asks for:
+
+   | Key | Example value |
+   |---|---|
+   | `LLM_API_KEY` | your Groq API key |
+   | `LLM_MODEL` | `openai/gpt-oss-120b` |
+   | `LLM_FAST_MODEL` | `openai/gpt-oss-20b` |
+   | `STT_MODEL` | `whisper-large-v3-turbo` |
+   | `LLM_REASONING_EFFORT` | `low` |
+   | `GITHUB_TOKEN` | a fine-grained token with *Public repositories (read-only)* access |
+   | `FRONTEND_ORIGIN` | leave empty for now; set it in step 3 |
+
+   Run `python scripts/discover_models.py` locally to see which model names your provider offers.
+3. Deploy, then check that `https://<your-service>.onrender.com/api/health` returns `{"status":"ok"}`.
+
+### 2. Frontend on Vercel
+
+1. **Add New → Project**, import the repo and set **Root Directory** to `frontend`. The framework preset (Next.js) is detected automatically.
+2. Add `NEXT_PUBLIC_API_URL=https://<your-service>.onrender.com`, without a trailing slash.
+3. Deploy and note the domain Vercel assigns (shown under **Domains** on the project page).
+
+### 3. Connect them
+
+1. In Render, open the service → **Environment**.
+2. Set `FRONTEND_ORIGIN` to the exact Vercel domain, e.g. `https://repo-grill.vercel.app`.
+3. Choose **Save, rebuild, and deploy**.
+
+In production the API only accepts browser requests from `FRONTEND_ORIGIN`. To allow more than one domain (e.g. a custom domain), separate them with commas.
+
+### Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| Browser console shows a **CORS** error, or the interview never starts | `FRONTEND_ORIGIN` doesn't exactly match the site address. Check `https://`, hyphens and subdomains. Vercel preview URLs are different domains. |
+| "GitHub API rate limit reached. It resets at …" | `GITHUB_TOKEN` is missing. Render's free instances share outbound IPs, so the anonymous 60 requests/hour runs out quickly. Add a token and redeploy. |
+| "Rate limited, retrying…" | Groq's per-minute token cap was hit. It retries automatically; answering a bit more slowly avoids it. |
+| "Waking the server…" for up to a minute | The free Render instance was asleep. Normal on the first visit. |
+| "Interview session not found or expired" | The backend restarted (redeploy or sleep), which clears in-memory sessions. Start a new interview. |
 
 ### Free-tier limits and cold starts
 
