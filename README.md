@@ -288,12 +288,10 @@ In production the API only accepts browser requests from `FRONTEND_ORIGIN`. To a
 | Browser console shows a **CORS** error, or the interview never starts | `FRONTEND_ORIGIN` doesn't exactly match the site address. Check `https://`, hyphens and subdomains. Vercel preview URLs are different domains. |
 | "GitHub API rate limit reached. It resets at …" | `GITHUB_TOKEN` is missing. Render's free instances share outbound IPs, so the anonymous 60 requests/hour runs out quickly. Add a token and redeploy. |
 | "Rate limited, retrying…" | Groq's per-minute token cap was hit. It retries automatically; answering a bit more slowly avoids it. |
-| "Waking the server…" for up to a minute | The free Render instance was asleep. Normal on the first visit. |
-| "Interview session not found or expired" | The backend restarted (redeploy or sleep), which clears in-memory sessions. Start a new interview. |
+| "Interview session not found or expired" | The backend restarted (e.g. a redeploy), which clears in-memory sessions. Start a new interview. |
 
-### Free-tier limits and cold starts
+### Free-tier limits
 
-- **Render free** services sleep after about 15 minutes idle. The first request can take up to a minute; the app pings `/api/health` first and shows a "Waking the server…" screen meanwhile. A restart also clears all in-memory sessions.
 - **Groq free tier**: about 8k tokens per minute per model, plus daily request caps. Rapid-fire answers may briefly show "Rate limited, retrying…".
 - **GitHub**: 60 requests/hour without a token, 5,000 with one. Each new repo or commit costs 3 API calls; file contents are fetched from the raw host.
 
