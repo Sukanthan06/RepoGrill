@@ -17,6 +17,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        populate_by_name=True,
     )
 
     llm_base_url: str = "https://api.groq.com/openai/v1"

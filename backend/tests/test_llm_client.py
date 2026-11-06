@@ -17,7 +17,7 @@ class Verdict(BaseModel):
 
 def make_settings() -> Settings:
     return Settings(
-        _env_file=None,
+        _env_file=(),
         llm_base_url=BASE,
         llm_api_key="test-key",
         llm_model="strong-model",
