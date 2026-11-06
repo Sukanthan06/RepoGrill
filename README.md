@@ -2,9 +2,7 @@
 
 **Paste a GitHub repo. Get grilled on it, out loud, by an interviewer who has actually read your code, and see every claim you made that the code doesn't back up.**
 
-**Live demo: [repo-grill.vercel.app](https://repo-grill.vercel.app)** · API: [repogrill-api.onrender.com](https://repogrill-api.onrender.com/api/health)
-
-> The backend runs on Render's free tier and sleeps when idle, so the first visit can show "Waking the server…" for up to a minute.
+**Live demo: [repo-grill.vercel.app](https://repo-grill.vercel.app)**
 
 ## Screenshots
 
