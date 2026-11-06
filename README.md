@@ -17,35 +17,91 @@
 ## Architecture
 
 ```mermaid
-flowchart LR
-    subgraph Browser["Browser (Next.js on Vercel)"]
-        UI[Landing / Interview / Report]
-        MR[MediaRecorder<br/>push-to-talk]
-        WS[Web Speech API<br/>fallback captions]
-        TTS[speechSynthesis]
+flowchart TD
+    subgraph Client["Client (Next.js on Vercel)"]
+        Landing["Landing Page<br/>(Repo Ingestion & Options)"]
+        VoiceEngine["Voice Audio Engine<br/>(MediaRecorder / Web Speech / SpeechSynthesis)"]
+        InterviewUI["Interactive Voice Interview<br/>(Pulsing Orb & Transcript Panel)"]
+        ReportUI["Scorecard & Bluff Report<br/>(Score Ring, Evidence & Markdown Export)"]
     end
 
-    subgraph API["FastAPI on Render"]
-        ING[ingestion<br/>rank + truncate files]
-        DOS[dossier<br/>cached per repo+SHA]
-        INT[interview engine<br/>state machine]
-        STT[transcribe proxy]
-        SCO[scoring<br/>claims, evidence, grades]
-        MEM[(in-memory TTL stores)]
+    subgraph Server["Backend (FastAPI Engine on Render)"]
+        IngestService["Ingestion Engine<br/>(File ranking, heuristic indexing, truncation)"]
+        DossierService["Dossier Generator<br/>(Architecture, weak spots & 12 questions)"]
+        SessionMachine["Interview State Machine<br/>(Adaptive follow-ups & turn control)"]
+        STTProxy["STT Whisper Proxy<br/>(Audio validation & transcription)"]
+        ScoringEngine["Scoring & Bluff Detection<br/>(Claim extraction, evidence search & grading)"]
+        MemoryStore[("In-Memory Store<br/>(2-Hour TTL Cleanup)")]
     end
 
-    GH[(GitHub REST API +<br/>raw.githubusercontent.com)]
-    LLM[(Groq: chat models<br/>+ Whisper)]
+    subgraph External["External APIs (Free Tier)"]
+        GitHubAPI[("GitHub REST API & Raw Host<br/>(Repo tree & source contents)")]
+        GroqLLM[("Groq AI Engine<br/>(LLM Chat + Whisper STT)")]
+    end
 
-    UI -- repo URL --> ING
-    ING --> GH
-    ING --> DOS --> LLM
-    UI -- answers --> INT --> LLM
-    MR -- audio --> STT --> LLM
-    WS -.-> UI
-    INT --> TTS
-    UI -- report --> SCO --> LLM
-    ING & DOS & INT & SCO --- MEM
+    Landing -->|"POST /api/ingest"| IngestService
+    IngestService -->|"Fetch repo structure & files"| GitHubAPI
+    IngestService -->|"Generate dossier"| DossierService
+    DossierService -->|"LLM dossier prompt"| GroqLLM
+    
+    InterviewUI -->|"POST /api/session"| SessionMachine
+    VoiceEngine -->|"POST /api/transcribe"| STTProxy
+    STTProxy -->|"Groq Whisper STT"| GroqLLM
+    
+    SessionMachine -->|"POST /api/session/{id}/answer"| GroqLLM
+    SessionMachine -.->|"Speak utterance"| VoiceEngine
+    
+    ReportUI -->|"GET /api/session/{id}/report"| ScoringEngine
+    ScoringEngine -->|"Extract claims & grade answers"| GroqLLM
+    ScoringEngine -->|"Match against evidence index"| IngestService
+    
+    IngestService & DossierService & SessionMachine & ScoringEngine --- MemoryStore
+```
+
+### End-to-End Interview & Bluff Detection Sequence Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant UI as Next.js Frontend
+    participant API as FastAPI Backend
+    participant GH as GitHub API
+    participant Groq as Groq (LLM & Whisper)
+
+    User->>UI: Paste GitHub Repo URL
+    UI->>API: POST /api/ingest
+    API->>GH: Fetch Repository Tree & Source Files
+    GH-->>API: Tree & File Contents
+    API->>Groq: Generate Dossier (Stack, Weak Spots, 12 Questions)
+    Groq-->>API: Dossier JSON
+    
+    User->>UI: Start Interview Session (Length & Difficulty)
+    UI->>API: POST /api/session
+    API-->>UI: Session Created (First Question & Utterance)
+    
+    loop Adaptive Interview Loop (5 / 8 / 12 questions)
+        User->>UI: Speak Answer (Hold Space / Microphone)
+        UI->>API: POST /api/transcribe (Audio payload)
+        API->>Groq: Transcribe Audio via Whisper STT
+        Groq-->>API: Transcribed Text
+        API-->>UI: Transcribed Text (Editable by user)
+        User->>UI: Submit Answer
+        UI->>API: POST /api/session/{id}/answer
+        API->>Groq: Evaluate Answer & Decide Action
+        Groq-->>API: Decision (Follow-up / Next Question)
+        API-->>UI: Next Utterance & Question
+        UI->>User: Play Voice TTS + Display Text
+    end
+
+    User->>UI: View Final Report
+    UI->>API: GET /api/session/{id}/report
+    API->>Groq: Extract Technical Claims from Answers
+    Groq-->>API: Claims List JSON
+    API->>API: Deterministic Evidence Search (Dependencies, File Paths, Code Search)
+    API->>Groq: Grade Depth, Accuracy & Clarity
+    Groq-->>API: Answer Grades & Overall Scorecard
+    API-->>UI: Scorecard Report & Caught Bluffs
 ```
 
 **Flow:** `POST /api/ingest` → `GET /api/dossier/{repo_id}` → `POST /api/session` → `POST /api/session/{id}/answer` (repeat) → `GET /api/session/{id}/report`. Audio goes to `POST /api/transcribe`.
