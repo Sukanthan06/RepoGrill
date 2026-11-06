@@ -1,3 +1,3 @@
 # Docs assets
 
-Put the demo recording here as `demo.gif` (referenced from the README).
+`screenshots/` holds the images shown in the main README, captured from the live deployment at 1440px width.
